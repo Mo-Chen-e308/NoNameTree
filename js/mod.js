@@ -54,10 +54,19 @@ function getPointGen() {
 		gain = gain.mul(new ExpantaNum(1.5).pow(player.s.points))
 		gain = gain.mul(new ExpantaNum(2).pow(player.so.points))
 
+		if(hasUpgrade("so",11))gain = gain.mul(layers.so.upgrades[11].effect()).max(1)
+		if(hasMilestone("so",1)) gain = gain.mul(player.points.pow(0.5)).max(1)
+
+		if(inChallenge("so",11)) gain = gain.pow(0.8)
+		if(hasChallenge("so",11)) gain = gain.pow(1.2)
+		
+		if(hasUpgrade("so",22)) gain = gain.pow(n(layers.so.upgrades[22].effect()).add(1))
+
 
 
 		gain = softcap(gain,new ExpantaNum(1e22),0.5)
 		gain = softcap(gain,new ExpantaNum(1e222),0.5)
+		gain = softcap(gain,new ExpantaNum("1e2222"),0.5)
 	return gain
 }
 

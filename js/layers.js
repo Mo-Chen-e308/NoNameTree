@@ -1,3 +1,20 @@
+function phi(n) {
+    if(n < 0) return new ExpantaNum(0);
+    if(n === 0) return new ExpantaNum(0);
+    if(n === 1) return new ExpantaNum(1);
+    // 使用递推方式计算斐波那契数列
+    let a = new ExpantaNum(0);
+    let b = new ExpantaNum(1);
+    
+    for(let i = 2; i <= n; i++) {
+        let temp = a.add(b);
+        a = b;
+        b = temp;
+    }
+    
+    return b;
+}
+
 function cost(id) {
     var count = player.p["buyable" + id];
     switch(id) {
@@ -6,9 +23,9 @@ function cost(id) {
         case 2:
             return new ExpantaNum(2.37).pow(count.add(1));
         case 3:
-            return new ExpantaNum(1e3).mul(new ExpantaNum(4.93).pow(count));
+            return new ExpantaNum(1e3).mul(new ExpantaNum(4.73).pow(count));
         case 4:
-            return new ExpantaNum(1e5).mul(new ExpantaNum(4.33).pow(count));
+            return new ExpantaNum(1e5).mul(new ExpantaNum(4.93).pow(count));
         case 5:
             return new ExpantaNum(1e8).mul(new ExpantaNum(5.13).pow(count));
         case 6:
@@ -80,14 +97,24 @@ addLayer("p", {
         mult = new ExpantaNum(1)
                 mult = mult.mul(new ExpantaNum(1.5).pow(player.s.points)).max(1)
             if(hasUpgrade("s",12)) mult = mult.mul(upgradeEffect("s",12)).max(1)
+            if(hasUpgrade("so",12)) mult = mult.mul(layers.so.upgrades[12].effect().max(1))
         return mult
     },
     gainExp() { 
         var exp = new ExpantaNum(1)
+            if(hasUpgrade("so",23)) exp = exp.mul(layers.so.upgrades[23].effect().max(0).add(1))
+            if(hasUpgrade("s",13)) exp = exp.mul(layers.s.upgrades[13].effect().max(0).add(1))
         return exp
     },
     row: 1, 
     layerShown() { return true },
+    doReset(resettingLayer) {
+        let keep = [];
+				if (hasMilestone("s",10)) keep.push("buyable1","buyable2","buyable3","buyable4","buyable5","buyable6","buyable7","buyable8","buyable9",);
+        if (layers[resettingLayer].row > this.row) {
+            layerDataReset(this.layer,keep)	
+		}
+	},
     passiveGeneration(){
         if(hasMilestone("s",6)) return 1
         if(hasMilestone("s",5)) return 0.1
@@ -406,7 +433,8 @@ addLayer("s", {
     baseResource: "声望",
     gainMult() { 
         mult = new ExpantaNum(1)
-            mult = mult.mul(new ExpantaNum(2).pow(player.so.points)).max(1)
+            mult = mult.div(new ExpantaNum(2).pow(player.so.points)).max(1)
+            if(hasUpgrade("so",13)) mult = mult.div(layers.so.upgrades[13].effect().max(1))
         return mult
     },
     gainExp() { 
@@ -438,6 +466,18 @@ addLayer("s", {
 		},
 		effectDisplay(){return "x" + format(upgradeEffect(this.layer,this.id))},
 		cost:new ExpantaNum(10),
+		unlocked(){return true},
+	},
+    13:{
+		title:"sUpg13",
+		description:"增加声望获取指数<br>基于阳光",
+        effect(){
+				var eff = new ExpantaNum(1)
+                eff = eff.mul(player.s.points.pow(0.05)).sub(1).max(0)
+				return eff
+		},
+		effectDisplay(){return "x" + format(upgradeEffect(this.layer,this.id))},
+		cost:new ExpantaNum(20),
 		unlocked(){return true},
 	},
 },
@@ -495,6 +535,12 @@ addLayer("s", {
             unlocked(){ return hasMilestone('s',8) },
             done() { return player.s.points.gte(11) }
         },
+        10: {
+            requirementDescription: "30 阳光",
+            effectDescription: "保留点数倍增器的购买",
+            unlocked(){ return hasMilestone('s',9) },
+            done() { return player.s.points.gte(30) }
+        },
     },
     tabFormat: {
         主界面:{
@@ -509,6 +555,12 @@ addLayer("s", {
 			},
     }
 })
+function getsoul(){
+    var getsoul = new ExpantaNum(0)
+        getsoul = getsoul.add(phi(player.so.points))
+            if(hasUpgrade("so",15)) getsoul = getsoul.mul(layers.so.upgrades[15].effect().max(1))
+        return getsoul
+}
 addLayer("so", {
     symbol: "Soul",
     position: 2,
@@ -524,13 +576,15 @@ addLayer("so", {
     type: "static", 
     canBuyMax() {return false},
     effectDescription(){return "这使你的点数获取和阳光获取 ×" + format(new ExpantaNum(2).pow(player.so.points))},
-    requires: new ExpantaNum(1e145),
-    exponent: 3,
+    requires: new ExpantaNum(1e140),
+    exponent: 3.5,
     base: 20,
     baseAmount() { return player.p.points },
     baseResource: "声望",
     gainMult() { 
         mult = new ExpantaNum(1)
+            if(hasUpgrade("so",14)) mult = mult.div(layers.so.upgrades[14].effect().max(1))
+            if(hasMilestone('so',2)) mult = mult.div(player.points.pow(0.25).max(1).min(1.79e308))
         return mult
     },
     gainExp() { 
@@ -538,17 +592,208 @@ addLayer("so", {
         return exp
     },
     row: 2, 
-    layerShown() { return player.p.points.gte(1e140) || player.so.unlocked },
+    layerShown() { return player.p.points.gte(1e135) || player.so.unlocked || hasMilestone('s',9)},
     update(diff){
-        if(player.so.points.gt(0)&&hasMilestone('so',0)){
-            player.so.soul = player.so.soul.add(player.so.points.logBase(10).mul(diff).max(1))
-        }
+        if(hasMilestone("so",0)&&player.so.points.gt(0)) player.so.soul = player.so.soul.add(getsoul().mul(diff))
+        },
+    upgrades: {
+        11: {
+            title: "SoUpg11",
+            description: "增加点数获取<br>基于灵魂碎片",
+            cost: new ExpantaNum(50),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.pow(2)).max(1)
+                return eff
+            },
+            effectDisplay() { 
+                return "×" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        12: {
+            title: "SoUpg12",
+            description: "增加声望获取<br>基于灵魂碎片",
+            cost: new ExpantaNum(100),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul).max(1)
+                return eff
+            },
+            effectDisplay() { 
+                return "×" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        13: {
+            title: "SoUpg13",
+            description: "增加阳光获取<br>基于灵魂碎片",
+            cost: new ExpantaNum(200),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.logBase(2).mul(100)).max(1)
+                return eff
+            },
+            effectDisplay() { 
+                return "×" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        14: {
+            title: "SoUpg14",
+            description: "增加灵魂获取<br>基于灵魂碎片",
+            cost: new ExpantaNum(400),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.logBase(3).mul(100)).max(1)
+                return eff
+            },
+            effectDisplay() { 
+                return "×" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        15: {
+            title: "SoUpg15",
+            description: "增加灵魂碎片获取<br>基于灵魂碎片",
+            cost: new ExpantaNum(800),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.logBase(5)).max(1)
+                return eff
+            },
+            effectDisplay() { 
+                return "×" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        21: {
+            title: "SoUpg21",
+            description: "解锁一个挑战",
+            cost: new ExpantaNum(1600),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        22: {
+            title: "SoUpg22",
+            description: "增加点数获取指数基于灵魂碎片",
+            cost: new ExpantaNum(3200),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            unlocked() { return hasChallenge("so",11) },
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.logBase(10).mul(0.01)).max(0)
+                return eff
+            },
+            effectDisplay() { 
+                return "+" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        23: {
+            title: "SoUpg23",
+            description: "增加声望获取指数基于灵魂碎片",
+            cost: new ExpantaNum(6400),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            unlocked() { return hasUpgrade("so",22)},
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.logBase(10).mul(0.005)).max(0)
+                return eff
+            },
+            effectDisplay() { 
+                return "+" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
     },
     milestones: {
         0: {
             requirementDescription: "2 灵魂",
             effectDescription: "开始产生灵魂碎片",
             done() { return player.so.points.gte(2) }
+        },
+        1: {
+            requirementDescription: "3 灵魂",
+            effectDescription(){
+                return "增加点数的获取基于点数<br>当前：x " + format(player.points.pow(0.5))
+            },
+            done() { return player.so.points.gte(3) }
+        },
+        2: {
+            requirementDescription: "4 灵魂",
+            effectDescription(){
+                return "增加灵魂的获取基于点数(1.79e308达到上限)<br>当前：x " + format(player.points.pow(0.25).min(1.79e308))
+            },
+            done() { return player.so.points.gte(4) }
+        },
+    },
+    challenges: {
+        11: {
+            name: "SoChg11",
+            challengeDescription: "进入挑战后重置S层并且点数获取^0.8",
+            canComplete(){return player.points.gte("1e260")},
+            goalDescription(){return format(ExpantaNum("1e260"))+"点数"},
+            rewardDescription(){return `点数获取^1.2<br>解锁新的灵魂碎片升级`},
+            unlocked(){return hasUpgrade("so",21)},
+            onEnter(){
+                layerDataReset("s")
+            },
+            onExit(){player.so.activeChallenge = 11},
+            //onComplete(){player.p.digitCapacity = n(5)},
         },
     },
     tabFormat: {
@@ -558,23 +803,33 @@ addLayer("so", {
 				"main-display",
 				"prestige-button",//raw-html
 				"blank",
-                "upgrades",
+                //"upgrades",
                 "milestones",
                 ]
 			},
         灵魂碎片:{
            buttonStyle(){return {'color':'#80ff00ff'}},
             content:[
-                "main-display",
+                //"main-display",
                 ["display-text",
               	function() {
 					    return 	"<h3>您有 " + "<span style='color: " + "#80ff00ff" + " ; font-size: 30px;'>" + 
 						format(player.so.soul) + "</span>" + " 灵魂碎片"
 						},
 			    ],
+                ["display-text",
+              	function() {
+                    var getsoul = new ExpantaNum(1)
+                    if(hasUpgrade("so",15)) getsoul = getsoul.mul(layers.so.upgrades[15].effect().max(1))
+                    var display = player.so.points.gt(0)?format(new ExpantaNum(phi(player.so.points).mul(getsoul).max(1))):new ExpantaNum(0)
+					    return "<br><h4>您每秒获得 " + "<span style='color: " + "#80ff00ff" + " ; font-size: 25px;'>" + 
+						display + "</span>" + " 灵魂碎片"
+						},
+			    ],
                 //"prestige-button",//raw-html
                 "blank",
-                //"upgrades",
+                "upgrades",
+                "challenges"
                 //"milestones",
                 ]
             },
@@ -610,19 +865,19 @@ addLayer("m", {
     milestones: {
         0: {
             requirementDescription: "第一层软上线",
-            effectDescription: "到达1e20后点数获取开根",
+            effectDescription: "到达1e22后点数获取开根",
             done() { return player.points.gte(1e22) }
         },
         1: {
             requirementDescription: "第二层软上线",
-            effectDescription: "到达1e200后点数获取开根",
+            effectDescription: "到达1e222后点数获取开根",
             done() { return player.points.gte(1e222) }
-        },/*
-        2: {
-            requirementDescription: "5个里程碑点",
-            effectDescription: "解锁第三个里程碑效果",
-            done() { return player.m.points.gte(5) }
         },
+        2: {
+            requirementDescription: "第三层软上限",
+            effectDescription: "到达1e2222后点数获取开根",
+            done() { return player.points.gte("1e2222") }
+        },/*
         3: {
             requirementDescription: "10个里程碑点",
             effectDescription: "解锁第四个里程碑效果",
