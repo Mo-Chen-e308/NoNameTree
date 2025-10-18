@@ -108,10 +108,13 @@ addLayer("p", {
     },
     row: 1, 
     layerShown() { return true },
+    hotkeys:[
+		{key: "p", description: "P: 进行层级P重置", onPress(){if (canReset(this.layer)) doReset(this.layer)}},
+	],
     doReset(resettingLayer) {
         let keep = [];
-				if (hasMilestone("s",10)) keep.push("buyable1","buyable2","buyable3","buyable4","buyable5","buyable6","buyable7","buyable8","buyable9",);
-        if (layers[resettingLayer].row > this.row) {
+			if(hasMilestone("s",10)) keep.push("buyable1","buyable2","buyable3","buyable4","buyable5","buyable6","buyable7","buyable8","buyable9",);
+                  if (layers[resettingLayer].row > this.row) {
             layerDataReset(this.layer,keep)	
 		}
 	},
@@ -424,8 +427,8 @@ addLayer("s", {
     color: "#00fff2ff",
     resource: "阳光", 
     type: "static", 
-    canBuyMax() {return false},
     effectDescription(){return "这使你的点数获取和声望获取 ×" + format(new ExpantaNum(1.5).pow(player.s.points))},
+    //canBuyMax() {return hasChallenge("so",12)},
     requires: new ExpantaNum(1e25),
     exponent: 2.2275,
     base: 5,
@@ -439,10 +442,19 @@ addLayer("s", {
     },
     gainExp() { 
         var exp = new ExpantaNum(1)
+            if(hasUpgrade("so",24)) exp = exp.mul(layers.so.upgrades[24].effect().max(0).add(1))
         return exp
     },
-    row: 2, 
+    row: 2,
     layerShown() { return player.p.points.gte(1e20) || player.s.unlocked },
+    doReset(resettingLayer) {
+        let keep = [];
+			keep.push();
+            
+                  if (layers[resettingLayer].row > this.row) {
+            layerDataReset(this.layer,keep)	
+		}
+	},
     upgrades:{
     11:{
 		title:"sUpg11",
@@ -589,6 +601,7 @@ addLayer("so", {
     },
     gainExp() { 
         var exp = new ExpantaNum(1)
+            if(hasUpgrade("so",25)) exp = exp.mul(layers.so.upgrades[25].effect().max(0).add(1))
         return exp
     },
     row: 2, 
@@ -759,11 +772,55 @@ addLayer("so", {
                 player.so.soul = player.so.soul.sub(this.cost);
             }
         },
+        24: {
+            title: "SoUpg24",
+            description: "增加阳光获取指数基于灵魂碎片",
+            cost: new ExpantaNum(12800),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            unlocked() { return hasUpgrade("so",23)&&hasMilestone("so",3)},
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.logBase(10).mul(0.01)).max(0)
+                return eff
+            },
+            effectDisplay() { 
+                return "+" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
+        25: {
+            title: "SoUpg25",
+            description: "增加灵魂获取指数基于灵魂碎片<br>并且解锁新的挑战",
+            cost: new ExpantaNum(25600),
+            currencyInternalName: "soul",
+            currencyDisplayName: "灵魂碎片",
+            unlocked() { return hasUpgrade("so",24)&&hasMilestone("so",3)},
+            effect() {
+                var eff = new ExpantaNum(1)
+                    eff = eff.mul(player.so.soul.logBase(10).mul(0.1)).max(0)
+                return eff
+            },
+            effectDisplay() { 
+                return "+" + format(this.effect()); 
+            },
+            canAfford() {
+                return player.so.soul.gte(this.cost);
+            },
+            pay() {
+                player.so.soul = player.so.soul.sub(this.cost);
+            }
+        },
     },
     milestones: {
         0: {
             requirementDescription: "2 灵魂",
-            effectDescription: "开始产生灵魂碎片",
+            effectDescription: "开始产生灵魂碎片(在有灵魂的情况下)",
             done() { return player.so.points.gte(2) }
         },
         1: {
@@ -771,6 +828,7 @@ addLayer("so", {
             effectDescription(){
                 return "增加点数的获取基于点数<br>当前：x " + format(player.points.pow(0.5))
             },
+            unlocked(){ return hasMilestone('so',0) },
             done() { return player.so.points.gte(3) }
         },
         2: {
@@ -778,7 +836,16 @@ addLayer("so", {
             effectDescription(){
                 return "增加灵魂的获取基于点数(1.79e308达到上限)<br>当前：x " + format(player.points.pow(0.25).min(1.79e308))
             },
+            unlocked(){ return hasMilestone('so',1) },
             done() { return player.so.points.gte(4) }
+        },
+        3: {
+            requirementDescription: "9 灵魂",
+            effectDescription(){
+                return "解锁新的灵魂碎片升级"
+            },
+            unlocked(){ return hasMilestone('so',2) },
+            done() { return player.so.points.gte(9) }
         },
     },
     challenges: {
@@ -793,6 +860,28 @@ addLayer("so", {
                 layerDataReset("s")
             },
             onExit(){player.so.activeChallenge = 11},
+            //onComplete(){player.p.digitCapacity = n(5)},
+        },
+        12: {
+            name: "SoChg12",
+            challengeDescription: "进入挑战后重置S层并且点数获取^0.6",
+            canComplete(){return player.points.gte("1e265")},
+            goalDescription(){return format(ExpantaNum("1e265"))+"点数"},
+            rewardDescription(){return `点数获取^1.5<br>解锁新的灵魂碎片升级`},
+            unlocked(){return hasUpgrade("so",25)},
+            onEnter(){
+                layerDataReset("s")
+                player.p.buyable1 = n(0)
+                player.p.buyable2 = n(0)
+                player.p.buyable3 = n(0)
+                player.p.buyable4 = n(0)
+                player.p.buyable5 = n(0)
+                player.p.buyable6 = n(0)
+                player.p.buyable7 = n(0)
+                player.p.buyable8 = n(0)
+                player.p.buyable9 = n(0)
+            },
+            onExit(){player.so.activeChallenge = 12},
             //onComplete(){player.p.digitCapacity = n(5)},
         },
     },
@@ -834,6 +923,132 @@ addLayer("so", {
                 ]
             },
         },
+})
+addLayer("g", {
+    symbol: "G",
+    position: 0,
+    branches: ["p"],
+    startData() { 
+        return {
+            unlocked: true,
+            points: new ExpantaNum(0),
+        }
+    },
+    color: "#4FFFB0",
+    resource: "齿轮", 
+    type: "normal", 
+    requires: new ExpantaNum("1e5555"),
+    exponent: 0.5,
+    baseAmount() { return player.points },
+    baseResource: "点数",
+    gainMult() { 
+        mult = new ExpantaNum(1)
+        return mult
+    },
+    gainExp() { 
+        var exp = new ExpantaNum(1)
+        return exp
+    },
+    row: 1, 
+    layerShown() { return player.points.gte("1e5550")||player.g.best.gt(0) },
+    doReset(resettingLayer) {
+        if (layers[resettingLayer].row > this.row) {
+            //layerDataReset("p")
+        }
+    },
+    update(){
+        if(player.g.best.lt(player.g.points))player.g.best = player.g.points
+    },
+    clickables: {
+        1: {
+            title() {
+                return "重置阳光和灵魂<br>获取齿轮<br>当前可获得: " + format(player.s.points.add(player.so.points).sub(62).max(0))
+            },
+            canClick() {
+                return player.s.points.add(player.so.points).sub(62).max(0).gt(0)
+            },
+            style() {
+                if (this.canClick()) {
+                    return {
+                        "height": "100px",
+                        "width": "200px",
+                        "color": "#000000",
+                        "background-color": "#4FFFB0"
+                    }
+                } else {
+                    return {
+                        "height": "100px",
+                        "width": "200px",
+                        "color": "#000000",
+                        "background-color": "#bf8080",
+                    }
+                }
+            },
+            gain(){
+                return player.s.points.add(player.so.points).sub(62).max(0)
+            },
+            onClick() {
+                if (this.canClick()) {
+                    player.g.points = player.g.points.add(this.gain())
+                    layerDataReset("s")
+                    layerDataReset("so")
+                        if(hasMilestone("g",0)) player.s.upgrades = [11,12,13]
+                        if(hasMilestone("g",1)) player.so.milestones = [0]
+                }
+            }
+        }
+    },
+    milestones: {
+        0: {
+            requirementDescription: "2 齿轮",
+            effectDescription: "保留SUpg11,SUpg12,SUpg13",
+            done() { return player.g.points.gte(2) }
+        },
+        1: {
+            requirementDescription: "4 齿轮",
+            effectDescription: "保留So节点第一个里程碑,但是产出灵魂碎片降低",
+            unlocked(){ return hasMilestone('g',0) },
+            done() { return player.g.points.gte(4)}
+        },/*
+        2: {
+            requirementDescription: "4 灵魂",
+            effectDescription(){
+                return "增加灵魂的获取基于点数(1.79e308达到上限)<br>当前：x " + format(player.points.pow(0.25).min(1.79e308))
+            },
+            done() { return player.so.points.gte(4) }
+        },
+        3: {
+            requirementDescription: "9 灵魂",
+            effectDescription(){
+                return "解锁新的灵魂碎片升级"
+            },
+            done() { return player.so.points.gte(9) }
+        },*/
+    },
+    tabFormat: {
+        主界面: {
+            buttonStyle() { return { 'color': '#4FFFB0' } },
+            content: [
+                ["display-text", function() { 
+                    return "<h2>您有 <h2 style='color:#4FFFB0'>" + format(player.g.points) + " </h2><h2>齿轮" 
+                }],
+                ["display-text", function() { 
+                    return "这使你点数获取× " + format(n(1000).pow(player.g.points)) + "<br>" 
+                }],
+                "blank",
+                ["clickable", 1],
+                "blank",
+                ["display-text", function() { 
+                    if (player.s.points.gte(new ExpantaNum(51))&&player.so.points.gte(new ExpantaNum(12))) {
+                        return "<h3 style='color:#4FFFB0'>您已拥有足够的阳光和灵魂来获取齿轮!<br>每多拥有一个阳光或灵魂就可多获取一个齿轮</h3>"
+                    } else {
+                        return "<h3 style='color:#FF4444'>阳光和灵魂不足<br>还需要 " + format(new ExpantaNum(51).sub(player.s.points).max(0)) + " 阳光和 " + format(n(12).sub(player.so.points).max(0)) + "灵魂</h3>"
+                    }
+                }],
+                "milestones",
+            ]
+        },
+    },
 })
 addLayer("m", {
     symbol: "M",
@@ -877,12 +1092,12 @@ addLayer("m", {
             requirementDescription: "第三层软上限",
             effectDescription: "到达1e2222后点数获取开根",
             done() { return player.points.gte("1e2222") }
-        },/*
-        3: {
-            requirementDescription: "10个里程碑点",
-            effectDescription: "解锁第四个里程碑效果",
-            done() { return player.m.points.gte(10) }
         },
+        3: {
+            requirementDescription: "第四层软上限",
+            effectDescription: "到达1e22222后点数获取开根",
+            done() { return player.m.points.gte("1e22222") }
+        },/*
         4: {
             requirementDescription: "25个里程碑点",
             effectDescription: "解锁第五个里程碑效果",
